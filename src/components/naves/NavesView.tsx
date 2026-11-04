@@ -2,10 +2,10 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState } from "react";
-import { FACTORY_ZONES } from "@/lib/naves";
+import { useEffect, useState } from "react";
+import { FACTORY_ZONES, VIEWS, type ViewKey } from "@/lib/naves";
 import type { NavesData, ZoneKitchen } from "@/lib/naves-data";
-import type { Selection } from "./NavesScene";
+import type { Quality, Selection } from "./NavesScene";
 
 // El 3D solo en el navegador (no se puede pintar en el servidor).
 const NavesScene = dynamic(() => import("./NavesScene"), {
@@ -99,22 +99,64 @@ function Panel({ data, sel, direccion, onClose }: { data: NavesData; sel: NonNul
   );
 }
 
+/** Preferencias del visor que se recuerdan en este navegador (vista, tejado, etiquetas, calidad). */
+function usePref<T extends string | boolean>(key: string, initial: () => T) {
+  const [v, setV] = useState<T>(initial);
+  useEffect(() => {
+    try { const saved = localStorage.getItem(`naves.${key}`); if (saved != null) setV(JSON.parse(saved)); } catch { /* sin almacenamiento */ }
+  }, [key]);
+  const set = (x: T) => { setV(x); try { localStorage.setItem(`naves.${key}`, JSON.stringify(x)); } catch { /* sin almacenamiento */ } };
+  return [v, set] as const;
+}
+
+const Toggle = ({ on, onClick, children, title }: { on: boolean; onClick: () => void; children: React.ReactNode; title: string }) => (
+  <button onClick={onClick} title={title}
+    className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md backdrop-blur transition ${on ? "bg-ink/90 text-white" : "bg-white/85 text-ink hover:bg-white"}`}>
+    {children}
+  </button>
+);
+
 export default function NavesView({ data, direccion }: { data: NavesData; direccion: boolean }) {
   const [sel, setSel] = useState<Selection>(null);
+  const [view, setView] = useState<ViewKey>("general");
+  const [roof, setRoof] = usePref<boolean>("tejado", () => false);
+  const [labels, setLabels] = usePref<boolean>("etiquetas", () => true);
+  // Calidad alta (sombras finas y oclusión ambiental) en ordenador; baja en tablet y móvil para que vaya fluido.
+  const [quality, setQuality] = usePref<Quality>("calidad", () =>
+    typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 1024 ? "alta" : "baja");
   const kitchensInFactory = Object.values(data.zones).reduce((s, l) => s + l.length, 0);
   return (
-    <div className="relative h-[calc(100vh-11rem)] min-h-[480px] overflow-hidden rounded-2xl border border-line lg:h-[calc(100vh-9rem)]">
-      <NavesScene data={data} selected={sel} onSelect={setSel} />
-      <div className="pointer-events-none absolute top-3 left-3 flex flex-wrap gap-2 text-xs">
-        <span className="rounded-lg bg-white/90 px-2 py-1 shadow">{kitchensInFactory} cocinas en fábrica</span>
-        {data.unplaced.length > 0 && <span className="rounded-lg bg-warn/90 px-2 py-1 text-white shadow">{data.unplaced.length} sin zona: ponla en Fábrica</span>}
-        <span className="rounded-lg bg-white/90 px-2 py-1 shadow">Estanterías: <b className="text-ok">●</b> bien <b className="text-warn">●</b> bajo <b className="text-bad">●</b> agotado</span>
+    <div className="relative h-[calc(100vh-11rem)] min-h-[480px] overflow-hidden rounded-2xl border border-line bg-[#dfe5ea] lg:h-[calc(100vh-9rem)]">
+      <NavesScene data={data} selected={sel} onSelect={setSel} view={view} roof={roof} labels={labels} quality={quality} />
+
+      {/* Arriba a la izquierda: resumen y leyenda */}
+      <div className="pointer-events-none absolute top-3 left-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-white/85 px-3 py-1.5 font-medium shadow-md backdrop-blur">{kitchensInFactory} cocinas en fábrica</span>
+        {data.unplaced.length > 0 && <span className="rounded-full bg-warn/90 px-3 py-1.5 text-white shadow-md">{data.unplaced.length} sin zona: ponla en Fábrica</span>}
+        <span className="rounded-full bg-white/85 px-3 py-1.5 shadow-md backdrop-blur">Estanterías <b className="text-ok">●</b> bien <b className="text-warn">●</b> bajo <b className="text-bad">●</b> agotado</span>
       </div>
-      <p className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-white/80 px-2 py-1 text-xs text-muted">
-        Arrastra para girar · rueda o dos dedos para acercar · toca una zona, estantería o el muelle
-      </p>
+
+      {/* Abajo: vistas de cámara y opciones */}
+      <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-end justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5 rounded-full bg-white/70 p-1 shadow-md backdrop-blur">
+          {(Object.keys(VIEWS) as ViewKey[]).map((k) => (
+            <button key={k} onClick={() => setView(k)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${view === k ? "bg-ink text-white" : "text-ink hover:bg-white"}`}>
+              {VIEWS[k].label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Toggle on={roof} onClick={() => setRoof(!roof)} title="Ver las naves con su tejado de dientes de sierra">Tejado</Toggle>
+          <Toggle on={labels} onClick={() => setLabels(!labels)} title="Mostrar los nombres de zonas y estanterías">Etiquetas</Toggle>
+          <Toggle on={quality === "alta"} onClick={() => setQuality(quality === "alta" ? "baja" : "alta")} title="Calidad alta: sombras finas y luz ambiental. Baja: más fluido en tablets">
+            Calidad {quality}
+          </Toggle>
+        </div>
+      </div>
+
       {sel && (
-        <div className="absolute inset-x-3 bottom-3 lg:inset-x-auto lg:top-3 lg:right-3 lg:bottom-auto lg:w-96">
+        <div className="absolute inset-x-3 bottom-16 lg:inset-x-auto lg:top-3 lg:right-3 lg:bottom-auto lg:w-96">
           <Panel data={data} sel={sel} direccion={direccion} onClose={() => setSel(null)} />
         </div>
       )}

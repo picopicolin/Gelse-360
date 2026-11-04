@@ -43,3 +43,13 @@ export const shelfOf = (location: string | null | undefined) => {
 
 // Muelle de carga: en la fachada de la Ctra. de Ripollet, junto a «Listos para salir».
 export const DOCK = { label: "Muelle de carga", rect: { x: 0, z: -63, w: 9, d: 9 } };
+
+// Vistas de cámara: posición y punto al que mira. Los botones del 3D vuelan de una a otra.
+export const VIEWS = {
+  general: { label: "General", pos: [38, 42, 30], target: [-15, 0, -30] },
+  fabrica: { label: "Fábrica", pos: [16, 26, -16], target: [-15, 0, -45] },
+  almacen: { label: "Almacén", pos: [-8, 13, -38], target: [-23, 1.5, -58] },
+  showroom: { label: "Showroom", pos: [14, 9, 16], target: [-14, 1.5, -12] },
+  muelle: { label: "Muelle", pos: [24, 8, -46], target: [3, 1, -59] },
+} as const satisfies Record<string, { label: string; pos: readonly [number, number, number]; target: readonly [number, number, number] }>;
+export type ViewKey = keyof typeof VIEWS;

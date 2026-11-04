@@ -207,3 +207,13 @@ insert into payments (kitchen_id, date, amount, kind, user_name, notes)
   select id, created_at::date, deposit, 'senal', 'Sistema', 'Señal apuntada en la ficha'
   from kitchens k where deposit > 0 and not exists (select 1 from payments p where p.kitchen_id = k.id);
 update kitchens set deposit = null where deposit is not null and exists (select 1 from payments p where p.kitchen_id = kitchens.id);
+
+-- Seguridad en Supabase: sus API públicas (con la clave «publishable») podrían leer las tablas del esquema public.
+-- Con RLS activado y sin ninguna política, esas API no ven nada. La web entra con el usuario de la base y no le afecta.
+do $$
+declare t text;
+begin
+  for t in select tablename from pg_tables where schemaname = 'public' loop
+    execute format('alter table public.%I enable row level security', t);
+  end loop;
+end $$;

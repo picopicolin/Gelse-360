@@ -4,8 +4,8 @@ Se usan las mismas cuentas que Picolín (GitHub **picopicolin**, Supabase y Verc
 Las contraseñas y claves **nunca** van por el chat: se pegan en `.env.local` (en el PC) o en Vercel.
 
 ## 1. GitHub: el repositorio
-1. En github.com (cuenta picopicolin): **New repository** → nombre `gelse-gestion` → **Private** → sin README, sin .gitignore → Create.
-2. Dime «repo creado» y lo subo yo.
+1. Hecho: repositorio privado **picopicolin/Gelse-360** (https://github.com/picopicolin/Gelse-360).
+2. Para publicar cambios: `git push` a `main`.
 
 ## 2. Supabase: base de datos y archivos
 1. En supabase.com: **New project** → nombre `gelse` → región **West EU (Ireland)** o **Central EU (Frankfurt)** → contraseña de base fuerte (guárdala en tu gestor).
@@ -19,7 +19,7 @@ Las contraseñas y claves **nunca** van por el chat: se pegan en `.env.local` (e
 3. Dime «Supabase hecho» y preparo la base (esquema, catálogo y almacén privado de planos).
 
 ## 3. Vercel: la web
-1. En vercel.com: **Add New → Project** → importa `picopicolin/gelse-gestion`.
+1. En vercel.com: **Add New → Project** → importa `picopicolin/Gelse-360`.
 2. En **Environment Variables**, añade:
    | Nombre | Valor |
    |---|---|

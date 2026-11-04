@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Colores de Gelse: tinta casi negra (como el logo), fondo cálido y madera de acento. */
+@theme {
+  --color-ink: #1f1d1b;
+  --color-muted: #6f6a64;
+  --color-paper: #f6f4f0;
+  --color-line: #e2ddd5;
+  --color-wood: #9a6a3a;
+  --color-ok: #2f7d4f;
+  --color-warn: #b7791f;
+  --color-bad: #b42318;
+  --font-sans: Arial, Helvetica, sans-serif;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+@layer components {
+  .card { @apply rounded-2xl border border-line bg-white; }
+  .h1 { @apply text-2xl font-semibold tracking-tight; }
+  .label { @apply mb-1 block text-sm font-medium; }
+  /* Campos y botones grandes: se usan con el dedo en la tablet de la nave. */
+  .input { @apply w-full rounded-xl border border-line bg-white px-3 py-2.5 text-base outline-none focus:border-wood; }
+  .btn { @apply inline-flex items-center justify-center rounded-xl bg-ink px-4 py-2.5 font-medium text-white hover:bg-black disabled:opacity-50; }
+  .btn-light { @apply inline-flex items-center justify-center rounded-xl border border-line bg-white px-4 py-2.5 font-medium hover:border-ink; }
+}

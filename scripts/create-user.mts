@@ -48,10 +48,15 @@ function askHidden(question: string): Promise<string> {
 }
 
 console.log(`Usuario «${username.toLowerCase()}» · ${name} · ${role}${process.argv.includes("--nube") ? " · EN LA NUBE" : " · local"}`);
-const password = await askHidden("Contraseña (mínimo 8 caracteres): ");
-if (password.length < 8) { console.error("Demasiado corta."); process.exit(1); }
-const again = process.stdin.isTTY ? await askHidden("Repítela: ") : password;
-if (again !== password) { console.error("No coinciden. No se ha guardado nada."); process.exit(1); }
+// Si es corta o no coincide, se vuelve a pedir (cerrar el script dejaría lo que quede por escribir en la línea de PowerShell).
+let password = "";
+for (let tries = 0; ; tries++) {
+  if (tries === 3) { console.error("Demasiados intentos. No se ha guardado nada."); process.exit(1); }
+  password = await askHidden("Contraseña (mínimo 8 caracteres): ");
+  if (password.length < 8) { console.log(`Tiene ${password.length} caracteres: demasiado corta, prueba otra.`); continue; }
+  if (!process.stdin.isTTY || (await askHidden("Repítela: ")) === password) break;
+  console.log("No coinciden, vuelve a empezar.");
+}
 
 const sql = postgres(scriptDbUrl(), { prepare: false });
 const hash = await bcrypt.hash(password, 10);

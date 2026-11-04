@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { BUILDINGS, type Rect } from "@/lib/naves";
+import { FactoryServices, ShowroomRoofUnits } from "./Industrial";
 import { concreteNormal, concreteTex, metalNormal, metalPanelTex, showroomFloorTex, signTex, woodTex } from "./textures";
 
 // Arquitectura: naves de chapa con tejado de dientes de sierra, pilares de acero, puertas y el showroom de cristal.
@@ -165,7 +166,7 @@ function FactoryDetails() {
         </group>
       ))}
       {/* Contenedor de residuos de madera junto a la entrada de material */}
-      <group position={[-12, 0, -68]}>
+      <group position={[-10, 0, -65.9]}>
         <mesh position={[0, 0.8, 0]} castShadow><boxGeometry args={[4, 1.6, 1.8]} /><meshStandardMaterial color="#2f6b46" metalness={0.3} roughness={0.6} /></mesh>
         <mesh position={[0, 1.4, 0]}><boxGeometry args={[3.9, 0.3, 1.7]} /><meshStandardMaterial color="#b98b5c" roughness={0.9} /></mesh>
       </group>
@@ -203,6 +204,7 @@ export function Factory({ roof }: { roof: boolean }) {
       {/* Rótulo «gelse» en la fachada de la Ctra. de Ripollet, sobre el muelle */}
       <mesh position={[0.2, h - 0.9, -50]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[3.4, 3.4]} /><meshStandardMaterial map={sign} transparent alphaTest={0.3} /></mesh>
       <FactoryDetails />
+      <FactoryServices roof={roof} />
       <Columns rect={n1.rect} height={h} />
       <Columns rect={n2.rect} height={h} />
       {roof ? (<><SawtoothRoof rect={n1.rect} height={n1.height} /><SawtoothRoof rect={n2.rect} height={n2.height} /></>)
@@ -293,6 +295,7 @@ export function Showroom({ roof, selected, hover }: { roof: boolean; selected: b
       <mesh position={[-14, height - 0.55, 0.3]}><planeGeometry args={[3.6, 3.6]} /><meshStandardMaterial map={sign} transparent alphaTest={0.3} /></mesh>
       <mesh position={[0.12, height - 0.6, -12 - R / 2]} castShadow><boxGeometry args={[0.3, 1.2, 24 - R]} /><meshStandardMaterial color="#f2efe9" roughness={0.6} /></mesh>
       <mesh position={[0.3, height - 0.55, -13]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[3.6, 3.6]} /><meshStandardMaterial map={sign} transparent alphaTest={0.3} /></mesh>
+      {roof && <ShowroomRoofUnits />}
       {roof && (
         <mesh position={[rect.x + rect.w / 2, height + 0.15, rect.z + rect.d / 2]} castShadow receiveShadow>
           <boxGeometry args={[rect.w, 0.3, rect.d]} /><meshStandardMaterial color="#cfcac2" />

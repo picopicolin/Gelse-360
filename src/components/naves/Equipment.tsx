@@ -276,3 +276,62 @@ export function Car({ p, rot = 0, color }: { p: V3; rot?: number; color: string 
     </group>
   );
 }
+
+// ── Operarios ──────────────────────────────────────────────────────────
+
+const SKIN = ["#e0b899", "#c99a77", "#a8775a", "#edc7a8"];
+
+/** Operario de pie trabajando (mira hacia +z): pantalón de trabajo, camiseta, chaleco reflectante y brazos hacia delante.
+ *  El de lacado va con mono blanco y mascarilla. */
+export function Worker({ p, rot = 0, seed = 0, painter = false }: { p: V3; rot?: number; seed?: number; painter?: boolean }) {
+  const skin = SKIN[seed % SKIN.length];
+  const legs = painter ? "#eeeeec" : "#2b3442";
+  const body = painter ? "#f2f2f0" : seed % 2 ? "#3b4350" : "#4a3f36";
+  return (
+    <group position={p} rotation={[0, rot, 0]}>
+      {[-0.1, 0.1].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 0.45, 0]} castShadow><capsuleGeometry args={[0.075, 0.68, 4, 10]} /><meshStandardMaterial color={legs} roughness={0.9} /></mesh>
+          <mesh position={[x, 0.05, 0.05]} castShadow><boxGeometry args={[0.13, 0.1, 0.28]} /><meshStandardMaterial color="#1d1d1d" /></mesh>
+        </group>
+      ))}
+      <mesh position={[0, 1.17, 0]} castShadow><capsuleGeometry args={[0.18, 0.4, 4, 12]} /><meshStandardMaterial color={body} roughness={0.85} /></mesh>
+      {!painter && (
+        <group position={[0, 1.15, 0]}>
+          <mesh><capsuleGeometry args={[0.19, 0.3, 4, 12]} /><meshStandardMaterial color="#e9d21f" roughness={0.7} /></mesh>
+          {[0.02, -0.12].map((y) => <mesh key={y} position={[0, y, 0]}><cylinderGeometry args={[0.195, 0.195, 0.035, 12]} /><meshStandardMaterial color="#d8dde2" metalness={0.5} roughness={0.3} /></mesh>)}
+        </group>
+      )}
+      {/* Brazos hacia delante, como manejando la máquina o la pieza */}
+      {[-0.24, 0.24].map((x) => (
+        <group key={x} position={[x, 1.36, 0]} rotation={[-1.1, 0, x > 0 ? -0.15 : 0.15]}>
+          <mesh position={[0, -0.24, 0]} castShadow><capsuleGeometry args={[0.055, 0.42, 4, 8]} /><meshStandardMaterial color={body} roughness={0.85} /></mesh>
+          <mesh position={[0, -0.5, 0]}><sphereGeometry args={[0.055, 10, 8]} /><meshStandardMaterial color={painter ? "#3a6fb0" : skin} /></mesh>
+        </group>
+      ))}
+      <mesh position={[0, 1.6, 0]}><cylinderGeometry args={[0.055, 0.06, 0.1, 10]} /><meshStandardMaterial color={skin} /></mesh>
+      <mesh position={[0, 1.73, 0]} castShadow><sphereGeometry args={[0.115, 16, 12]} /><meshStandardMaterial color={skin} roughness={0.7} /></mesh>
+      {/* Pelo, o capucha y mascarilla en el de lacado */}
+      <mesh position={[0, 1.77, -0.015]} scale={[1, 0.75, 1]}><sphereGeometry args={[0.12, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color={painter ? "#f2f2f0" : seed % 3 ? "#2a211b" : "#6b5743"} roughness={0.9} /></mesh>
+      {painter && <mesh position={[0, 1.69, 0.09]}><boxGeometry args={[0.13, 0.08, 0.06]} /><meshStandardMaterial color="#5a6066" /></mesh>}
+      {/* Cascos de protección auditiva (en las máquinas hace ruido) */}
+      {!painter && [-0.12, 0.12].map((x) => <mesh key={x} position={[x, 1.73, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.045, 0.045, 0.04, 12]} /><meshStandardMaterial color="#d6402f" /></mesh>)}
+    </group>
+  );
+}
+
+/** Dónde trabaja cada operario, según la máquina de su zona. */
+export function ZoneWorkers({ zone, rect }: { zone: string; rect: Rect }) {
+  const cx = rect.x + rect.w / 2;
+  const top = rect.z + 2.6;
+  switch (zone) {
+    case "corte": return <Worker p={[cx - 1.6, 0, top - 2.3]} seed={0} />;
+    case "canteado": return <><Worker p={[cx - 5.2, 0, top + 1.45]} rot={Math.PI} seed={1} /><Worker p={[cx + 3.8, 0, top + 1.3]} rot={Math.PI + 0.4} seed={2} /></>;
+    case "mecanizado": return <Worker p={[cx + 1.6, 0, top + 2.4]} rot={Math.PI - 0.3} seed={3} />;
+    case "lacado": return <Worker p={[cx - 3, 0, top + 1.5]} rot={Math.PI} seed={1} painter />;
+    case "montaje": return <><Worker p={[rect.x + 2.5, 0, top + 1]} rot={Math.PI} seed={2} /><Worker p={[rect.x + 10.7, 0, top + 1]} rot={Math.PI + 0.2} seed={0} /></>;
+    case "embalaje": return <Worker p={[cx - 2.4, 0, top + 0.6]} rot={Math.PI} seed={3} />;
+    case "almacen": return <Worker p={[rect.x + 9.5, 0, rect.z + rect.d - 4]} rot={-2.2} seed={1} />;
+    default: return null;
+  }
+}

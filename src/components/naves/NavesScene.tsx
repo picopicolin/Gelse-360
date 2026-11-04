@@ -8,7 +8,7 @@ import * as THREE from "three";
 import { DOCK, FACTORY_ZONES, type Rect, SHELVES, VIEWS, type ViewKey } from "@/lib/naves";
 import type { NavesData } from "@/lib/naves-data";
 import { Factory, Showroom } from "./Architecture";
-import { Forklift, KitchenPallet, PalletRack, Van, ZoneEquipment } from "./Equipment";
+import { Forklift, KitchenPallet, PalletRack, Van, ZoneEquipment, ZoneWorkers } from "./Equipment";
 import { Surroundings } from "./Surroundings";
 
 export type Selection = { type: "zone"; key: string } | { type: "shelf"; key: string } | { type: "dock" } | { type: "showroom" } | null;
@@ -66,6 +66,7 @@ function Zone({ z, kitchens, selected, onSelect, labels }: {
       </mesh>
       <FloorLines rect={z.rect} />
       <ZoneEquipment zone={z.key} rect={z.rect} />
+      <ZoneWorkers zone={z.key} rect={z.rect} />
       {shown.map((k, i) => (
         // Palés en la franja de abajo de la zona, en fila.
         <KitchenPallet key={k.id} k={k} p={[z.rect.x + 1.8 + (i % 4) * 3, 0, z.rect.z + z.rect.d - 1.3 - Math.floor(i / 4) * 1.9]} />

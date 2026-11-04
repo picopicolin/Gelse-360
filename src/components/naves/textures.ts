@@ -144,3 +144,75 @@ export const stripesTex = () =>
     ctx.fillStyle = "rgba(245,245,240,0.92)";
     ctx.fillRect(0, 0, s / 2, s);
   });
+
+// ── Relieve (normal maps) ──────────────────────────────────────────────
+// Se dibuja un mapa de alturas en gris y se convierte en normales: así la luz marca las ondas de la chapa
+// y el poro del hormigón aunque la geometría sea plana.
+
+function normalFromHeight(key: string, size: number, drawHeight: (ctx: CanvasRenderingContext2D, s: number) => void, repeat: [number, number], strength = 2) {
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const src = document.createElement("canvas");
+  src.width = src.height = size;
+  const sctx = src.getContext("2d")!;
+  drawHeight(sctx, size);
+  const h = sctx.getImageData(0, 0, size, size).data;
+  const out = sctx.createImageData(size, size);
+  const at = (x: number, y: number) => h[(((y + size) % size) * size + ((x + size) % size)) * 4] / 255;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * strength;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * strength;
+      const len = Math.hypot(dx, dy, 1);
+      const i = (y * size + x) * 4;
+      out.data[i] = ((-dx / len) * 0.5 + 0.5) * 255;
+      out.data[i + 1] = ((dy / len) * 0.5 + 0.5) * 255;
+      out.data[i + 2] = ((1 / len) * 0.5 + 0.5) * 255;
+      out.data[i + 3] = 255;
+    }
+  }
+  sctx.putImageData(out, 0, 0);
+  const tex = new THREE.CanvasTexture(src);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(...repeat);
+  tex.anisotropy = 8;
+  cache.set(key, tex);
+  return tex;
+}
+
+/** Ondas de la chapa grecada (8 ondas por textura, igual que metalPanelTex). */
+export const metalNormal = (repeat: [number, number]) =>
+  normalFromHeight(`n-metal-${repeat}`, 128, (ctx, s) => {
+    for (let x = 0; x < s; x++) {
+      const v = Math.round((0.5 + 0.5 * Math.sin((x / s) * Math.PI * 2 * 8)) * 255);
+      ctx.fillStyle = `rgb(${v},${v},${v})`;
+      ctx.fillRect(x, 0, 1, s);
+    }
+  }, repeat, 3);
+
+/** Poro fino del hormigón y las juntas cada 5 m. */
+export const concreteNormal = (repeat: [number, number]) =>
+  normalFromHeight(`n-concrete-${repeat}`, 256, (ctx, s) => {
+    const r = rng(21);
+    ctx.fillStyle = "rgb(128,128,128)";
+    ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 6000; i++) { const v = 100 + r() * 60; ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect(r() * s, r() * s, 1 + r() * 2, 1 + r() * 2); }
+    ctx.fillStyle = "rgb(40,40,40)";
+    ctx.fillRect(0, 0, s, 2);
+    ctx.fillRect(0, 0, 2, s);
+  }, repeat, 1.5);
+
+/** Asfalto: grano grueso. */
+export const asphaltNormal = (repeat: [number, number]) =>
+  normalFromHeight(`n-asphalt-${repeat}`, 256, (ctx, s) => {
+    const r = rng(9);
+    ctx.fillStyle = "rgb(128,128,128)";
+    ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 9000; i++) { const v = 80 + r() * 120; ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect(r() * s, r() * s, 1 + r() * 2.5, 1 + r() * 2.5); }
+  }, repeat, 2.5);
+
+/** Césped: verde con matices (mediana, rotonda, parterres). */
+export const grassTex = (repeat: [number, number]) =>
+  make(`grass-${repeat}`, 256, (ctx, s) => {
+    speckle(ctx, s, "#6f8a4a", [["rgba(150,180,90,0.35)", 7000], ["rgba(40,60,25,0.35)", 7000]], 17);
+  }, repeat);

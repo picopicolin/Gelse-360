@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { BUILDINGS, type Rect } from "@/lib/naves";
-import { concreteTex, metalPanelTex, showroomFloorTex, signTex, woodTex } from "./textures";
+import { concreteNormal, concreteTex, metalNormal, metalPanelTex, showroomFloorTex, signTex, woodTex } from "./textures";
 
 // Arquitectura: naves de chapa con tejado de dientes de sierra, pilares de acero, puertas y el showroom de cristal.
 // Sin tejado, las paredes se cortan a 4,5 m (como una maqueta seccionada) para ver el interior.
@@ -13,7 +13,7 @@ const T = 0.3; // grosor de pared
 type Opening = { from: number; to: number; top: number; kind?: "rollup" | "door" };
 
 /** Una pared recta de a a b (en planta), con zócalo de hormigón, chapa encima y huecos (puertas). */
-export function Wall({ a, b, height, openings = [] }: { a: [number, number]; b: [number, number]; height: number; openings?: Opening[] }) {
+export function Wall({ a, b, height, openings = [], windows = false }: { a: [number, number]; b: [number, number]; height: number; openings?: Opening[]; windows?: boolean }) {
   const dx = b[0] - a[0], dz = b[1] - a[1];
   const len = Math.hypot(dx, dz);
   const angle = Math.atan2(-dz, dx);
@@ -25,11 +25,30 @@ export function Wall({ a, b, height, openings = [] }: { a: [number, number]; b: 
   for (const h of holes) { if (h.from > cur) solids.push([cur, h.from]); cur = Math.max(cur, h.to); }
   if (cur < len) solids.push([cur, len]);
   const panel = metalPanelTex([Math.max(1, Math.round(len / 4)), 1]);
+  // Ventana corrida a 2,6–3,6 m (típica de nave): por tramos macizos, con montantes cada 2,5 m.
+  const winY = 3.1, winH = 1, showWin = windows && height > winY + winH / 2;
   return (
     <group position={[a[0], 0, a[1]]} rotation={[0, angle, 0]}>
+      {showWin && solids.map(([s0, e0]) => {
+        const w = e0 - s0 - 1.2;
+        if (w < 2) return null;
+        const n = Math.max(1, Math.round(w / 2.5));
+        return (
+          <group key={`w${s0}`} position={[s0 + 0.6 + w / 2, winY, 0]}>
+            {[-1, 1].map((side) => (
+              <mesh key={side} position={[0, 0, side * (T / 2 + 0.012)]}><planeGeometry args={[w, winH]} /><meshStandardMaterial color="#5f7585" roughness={0.08} metalness={0.6} side={2} /></mesh>
+            ))}
+            {Array.from({ length: n + 1 }, (_, i) => (
+              <mesh key={i} position={[-w / 2 + (i * w) / n, 0, 0]}><boxGeometry args={[0.07, winH, T + 0.06]} /><meshStandardMaterial color="#d9dcdf" metalness={0.4} /></mesh>
+            ))}
+            <mesh position={[0, -winH / 2, 0]}><boxGeometry args={[w, 0.06, T + 0.12]} /><meshStandardMaterial color="#d9dcdf" /></mesh>
+          </group>
+        );
+      })}
       {solids.map(([s, e]) => {
         const w = e - s;
-        const tex = metalPanelTex([Math.max(1, Math.round(w / 3)), 1]);
+        const rep: [number, number] = [Math.max(1, Math.round(w / 3)), 1];
+        const tex = metalPanelTex(rep);
         return (
           <group key={s} position={[s + w / 2, 0, 0]}>
             <mesh position={[0, plinth / 2, 0]} castShadow receiveShadow>
@@ -38,7 +57,7 @@ export function Wall({ a, b, height, openings = [] }: { a: [number, number]; b: 
             </mesh>
             <mesh position={[0, plinth + (height - plinth) / 2, 0]} castShadow receiveShadow>
               <boxGeometry args={[w, height - plinth, T]} />
-              <meshStandardMaterial map={tex} roughness={0.55} metalness={0.25} />
+              <meshStandardMaterial map={tex} normalMap={metalNormal(rep)} normalScale={[0.8, 0.8]} roughness={0.5} metalness={0.3} />
             </mesh>
           </group>
         );
@@ -101,7 +120,7 @@ function SawtoothRoof({ rect, height }: { rect: Rect; height: number }) {
           <group key={i}>
             <mesh position={[rect.x + rect.w / 2, height + rise / 2, z0 + step / 2]} rotation={[angle, 0, 0]} castShadow receiveShadow>
               <boxGeometry args={[rect.w + 0.4, 0.12, slope]} />
-              <meshStandardMaterial map={tex} roughness={0.5} metalness={0.35} />
+              <meshStandardMaterial map={tex} normalMap={metalNormal([Math.round(rect.w / 3), 1])} roughness={0.45} metalness={0.4} />
             </mesh>
             <mesh position={[rect.x + rect.w / 2, height + rise / 2, z0]}>
               <boxGeometry args={[rect.w, rise, 0.06]} />
@@ -127,29 +146,63 @@ function CutCap({ rect, height }: { rect: Rect; height: number }) {
   );
 }
 
+/** Detalles que dan vida: extintores en las paredes, bolardos en las puertas, contenedor y palés vacíos fuera. */
+function FactoryDetails() {
+  const ext: [number, number, number][] = [[-0.35, -40, 0], [-29.65, -44, Math.PI], [-14.65, -52, Math.PI], [-15.35, -38, 0], [-8, -63.65, Math.PI / 2], [-22, -63.65, Math.PI / 2]];
+  const bollards: [number, number][] = [[0.9, -62.4], [0.9, -56.6], [-25.6, -65], [-21.1, -65]];
+  return (
+    <group>
+      {ext.map(([x, z, r], i) => (
+        <group key={i} position={[x, 0, z]} rotation={[0, r, 0]}>
+          <mesh position={[0, 1.65, 0]}><boxGeometry args={[0.04, 0.5, 0.35]} /><meshStandardMaterial color="#d23a2e" /></mesh>
+          <mesh position={[-0.12, 0.95, 0]} castShadow><cylinderGeometry args={[0.09, 0.09, 0.55, 14]} /><meshStandardMaterial color="#c8231b" roughness={0.35} /></mesh>
+        </group>
+      ))}
+      {bollards.map(([x, z]) => (
+        <group key={`${x}${z}`} position={[x, 0, z]}>
+          <mesh position={[0, 0.5, 0]} castShadow><cylinderGeometry args={[0.1, 0.1, 1, 12]} /><meshStandardMaterial color="#f2b632" /></mesh>
+          {[0.35, 0.7].map((y) => <mesh key={y} position={[0, y, 0]}><cylinderGeometry args={[0.105, 0.105, 0.08, 12]} /><meshStandardMaterial color="#1d1d1d" /></mesh>)}
+        </group>
+      ))}
+      {/* Contenedor de residuos de madera junto a la entrada de material */}
+      <group position={[-12, 0, -68]}>
+        <mesh position={[0, 0.8, 0]} castShadow><boxGeometry args={[4, 1.6, 1.8]} /><meshStandardMaterial color="#2f6b46" metalness={0.3} roughness={0.6} /></mesh>
+        <mesh position={[0, 1.4, 0]}><boxGeometry args={[3.9, 0.3, 1.7]} /><meshStandardMaterial color="#b98b5c" roughness={0.9} /></mesh>
+      </group>
+      {/* Palés vacíos apilados fuera del muelle */}
+      {Array.from({ length: 6 }, (_, i) => <mesh key={i} position={[6.8, 0.08 + i * 0.15, -66.5]} castShadow><boxGeometry args={[1.2, 0.14, 0.8]} /><meshStandardMaterial color={i % 2 ? "#a07a52" : "#8f6b46"} /></mesh>)}
+    </group>
+  );
+}
+
 /** Las dos naves de la fábrica: suelo de hormigón, paredes con sus puertas, pilares y tejado. */
 export function Factory({ roof }: { roof: boolean }) {
   const n1 = BUILDINGS.nave1, n2 = BUILDINGS.nave2;
   const h = roof ? n1.height : CUT_HEIGHT;
-  const floor = useMemo(() => concreteTex([6, 16]), []);
+  const floor = useMemo(() => concreteTex([6, 8]), []);
+  const floorN = useMemo(() => concreteNormal([6, 8]), []);
+  const sign = useMemo(() => signTex(), []);
   return (
     <group>
       {/* Suelo continuo de las dos naves */}
       <mesh position={[n2.rect.x + 15, 0.02, n1.rect.z + 20]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[30, 40]} />
-        <meshStandardMaterial map={floor} roughness={0.35} metalness={0.05} />
+        <meshStandardMaterial map={floor} normalMap={floorN} normalScale={[0.4, 0.4]} roughness={0.32} metalness={0.05} />
       </mesh>
       {/* Fachada este (Ctra. de Ripollet): puerta enrollable del muelle y puerta de paso */}
-      <Wall a={[0, -64]} b={[0, -24]} height={h} openings={[
+      <Wall a={[0, -64]} b={[0, -24]} height={h} windows openings={[
         { from: 2, to: 7, top: 4.4, kind: "rollup" },
         { from: 30, to: 31.2, top: 2.2, kind: "door" },
       ]} />
       {/* Fachada oeste */}
-      <Wall a={[-30, -24]} b={[-30, -64]} height={h} />
+      <Wall a={[-30, -24]} b={[-30, -64]} height={h} windows />
       {/* Fachada norte: entrada de material al almacén */}
-      <Wall a={[-30, -64]} b={[0, -64]} height={h} openings={[{ from: 4, to: 8.5, top: 4.4, kind: "rollup" }]} />
+      <Wall a={[-30, -64]} b={[0, -64]} height={h} windows openings={[{ from: 4, to: 8.5, top: 4.4, kind: "rollup" }]} />
       {/* Pared entre naves, con dos pasos */}
       <Wall a={[-15, -64]} b={[-15, -24]} height={h} openings={[{ from: 4, to: 8, top: 4, kind: "rollup" }, { from: 31, to: 36, top: 4, kind: "rollup" }]} />
+      {/* Rótulo «gelse» en la fachada de la Ctra. de Ripollet, sobre el muelle */}
+      <mesh position={[0.2, h - 0.9, -50]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[3.4, 3.4]} /><meshStandardMaterial map={sign} transparent alphaTest={0.3} /></mesh>
+      <FactoryDetails />
       <Columns rect={n1.rect} height={h} />
       <Columns rect={n2.rect} height={h} />
       {roof ? (<><SawtoothRoof rect={n1.rect} height={n1.height} /><SawtoothRoof rect={n2.rect} height={n2.height} /></>)
@@ -251,6 +304,20 @@ export function Showroom({ roof, selected, hover }: { roof: boolean; selected: b
       <DisplayKitchen x={-27.5} z={-9} rot={Math.PI / 2} front="#a9805a" />
       <DisplayKitchen x={-19} z={-12} front="#e8e2d8" top="#2b2a28" island />
       <DisplayKitchen x={-8} z={-12} front="#5a4632" top="#e6e1d8" />
+      {/* Zona de espera con sofá y mesa, y plantas junto al cristal */}
+      <group position={[-4, 0, -17]}>
+        <mesh position={[0, 0.25, 0]} castShadow><boxGeometry args={[2.4, 0.45, 0.9]} /><meshStandardMaterial color="#6d6a66" roughness={0.9} /></mesh>
+        <mesh position={[0, 0.65, -0.38]} castShadow><boxGeometry args={[2.4, 0.5, 0.18]} /><meshStandardMaterial color="#6d6a66" roughness={0.9} /></mesh>
+        <mesh position={[0, 0.22, 1.2]} castShadow><cylinderGeometry args={[0.5, 0.5, 0.04, 24]} /><meshStandardMaterial color="#b49470" /></mesh>
+        <mesh position={[0, 0.1, 1.2]}><cylinderGeometry args={[0.05, 0.05, 0.2, 8]} /><meshStandardMaterial color="#222" /></mesh>
+      </group>
+      {[[-28.5, -1.5], [-16, -1.4], [-1.4, -21], [-2.6, -2.6], [-28.5, -22.5]].map(([x, z]) => (
+        <group key={`${x}${z}`} position={[x, 0, z]}>
+          <mesh position={[0, 0.3, 0]} castShadow><cylinderGeometry args={[0.28, 0.22, 0.6, 16]} /><meshStandardMaterial color="#e9e5de" /></mesh>
+          <mesh position={[0, 1.1, 0]} castShadow><icosahedronGeometry args={[0.55, 1]} /><meshStandardMaterial color="#4f7a3e" flatShading /></mesh>
+          <mesh position={[0.15, 1.6, 0.1]} castShadow><icosahedronGeometry args={[0.35, 1]} /><meshStandardMaterial color="#5e8a48" flatShading /></mesh>
+        </group>
+      ))}
       {/* Mostrador de recepción junto a la entrada */}
       <mesh position={[-6, 0.55, -4]} castShadow><boxGeometry args={[3, 1.1, 0.8]} /><meshStandardMaterial color="#2b2a28" roughness={0.4} /></mesh>
     </group>

@@ -13,7 +13,7 @@ export async function addPayment(fd: FormData) {
   const kitchenId = Number(fd.get("kitchen_id"));
   const amount = money(fd, "amount");
   const kind = String(fd.get("kind"));
-  if (!amount || amount <= 0 || !(kind in PAYMENT_KINDS)) redirect(`/cocinas/${kitchenId}?error=cobro#cobros`);
+  if (!amount || amount <= 0 || !(kind in PAYMENT_KINDS)) redirect(`/cocinas/${kitchenId}?ver=cobros&error=cobro`);
   const [k] = await sql`select title from kitchens where id = ${kitchenId}`;
   if (!k) redirect("/cocinas");
   await sql`insert into payments ${sql({
@@ -23,7 +23,7 @@ export async function addPayment(fd: FormData) {
   await audit(me, "crear", "cobro", `${PAYMENT_KINDS[kind]} de ${eur(amount)} en «${k.title}»`, { id: kitchenId, href: `/cocinas/${kitchenId}` });
   revalidatePath(`/cocinas/${kitchenId}`);
   revalidatePath("/");
-  redirect(`/cocinas/${kitchenId}?ok=cobro#cobros`);
+  redirect(`/cocinas/${kitchenId}?ver=cobros&ok=cobro`);
 }
 
 /** Quitar un cobro mal apuntado: deja de contar, pero se guarda (deleted_at). */

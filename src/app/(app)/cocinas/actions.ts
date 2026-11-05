@@ -57,5 +57,7 @@ export async function setPhase(fd: FormData) {
     await audit(me, "editar", "cocina", `«${k.title}» pasa a ${phaseLabel(phase)}`, { id, href: `/cocinas/${id}` });
   }
   revalidatePath("/cocinas");
-  redirect(`/cocinas/${id}`);
+  // Se vuelve a la misma pestaña de la ficha desde la que se cambió la fase.
+  const tab = String(fd.get("ver") ?? "");
+  redirect(`/cocinas/${id}${/^[a-z]+$/.test(tab) ? `?ver=${tab}` : ""}`);
 }

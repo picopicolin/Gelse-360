@@ -241,7 +241,7 @@ export default async function Panel() {
             ))}
             {overdue.slice(0, 3).map((p) => (
               <li key={`p${p.id}`}>
-                <Link href={`/cocinas/${p.id}#cobros`} className="flex items-start gap-3 py-2.5 hover:bg-paper">
+                <Link href={`/cocinas/${p.id}?ver=cobros`} className="flex items-start gap-3 py-2.5 hover:bg-paper">
                   <span className="mt-0.5 rounded-full bg-bad/10 px-2 py-0.5 text-xs font-medium text-bad">Sin cobrar</span>
                   <span className="flex-1 text-sm">{p.title} <span className="text-muted">· {p.client} · {phaseLabel(p.phase)}</span></span>
                   <span className="text-sm font-medium tabular-nums">{eur(Number(p.pending))}</span>

@@ -1,14 +1,14 @@
 "use client";
 
 import { CameraControls, Environment, Html, Lightformer, Sky } from "@react-three/drei";
-import { Canvas, type ThreeEvent, useThree } from "@react-three/fiber";
+import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, N8AO, SMAA } from "@react-three/postprocessing";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { DOCK, FACTORY_ZONES, type Rect, SHELVES, VIEWS, type ViewKey } from "@/lib/naves";
 import type { NavesData } from "@/lib/naves-data";
 import { Factory, Showroom } from "./Architecture";
-import { Forklift, KitchenPallet, PalletRack, Van, ZoneEquipment, ZoneWorkers } from "./Equipment";
+import { BoardStack, Forklift, KitchenPallet, PalletRack, Van, ZoneEquipment, ZoneWorkers } from "./Equipment";
 import { Surroundings } from "./Surroundings";
 
 export type Selection = { type: "zone"; key: string } | { type: "shelf"; key: string } | { type: "dock" } | { type: "showroom" } | null;
@@ -117,6 +117,38 @@ function ShowroomPick({ roof, selected, onSelect, labels }: { roof: boolean; sel
   );
 }
 
+/** Carretilla que va y viene por el pasillo entre el almacén y el corte, llevando tableros a la seccionadora.
+ *  Solo se mueve en calidad alta (pide dibujar sin parar); en baja se queda quieta para no gastar batería. */
+function MovingForklift({ moving }: { moving: boolean }) {
+  const ref = useRef<THREE.Group>(null);
+  const forks = useRef<THREE.Group>(null);
+  const load = useRef<THREE.Group>(null);
+  useFrame((state) => {
+    if (!moving || !ref.current || !forks.current || !load.current) return;
+    // Ciclo de 24 s: va cargada (0–10 s), deja la carga (10–12), vuelve marcha atrás (12–22) y recoge (22–24).
+    const t = state.clock.elapsedTime % 24;
+    const ease = (u: number) => u * u * (3 - 2 * u);
+    const x0 = -18, x1 = -26;
+    const k = t < 10 ? ease(t / 10) : t < 12 ? 1 : t < 22 ? 1 - ease((t - 12) / 10) : 0;
+    ref.current.position.x = x0 + (x1 - x0) * k;
+    const lift = t >= 10 && t < 12 ? Math.sin(((t - 10) / 2) * Math.PI) * 0.3 : t >= 22 ? Math.sin(((t - 22) / 2) * Math.PI) * 0.3 : 0;
+    forks.current.position.y = 0.15 + lift;
+    load.current.visible = t < 11 || t >= 23;
+    state.invalidate();
+  });
+  // Al pasar a calidad alta hay que pedir el primer fotograma para arrancar el bucle.
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => { if (moving) invalidate(); }, [moving, invalidate]);
+  return (
+    <group ref={ref} position={[-18, 0, -49.6]}>
+      <Forklift p={[0, 0, 0]} rot={Math.PI / 2} />
+      <group ref={forks} position={[-1.75, 0.15, 0]}>
+        <group ref={load}><BoardStack p={[0, 0, 0]} n={10} size={[1.6, 1]} /></group>
+      </group>
+    </group>
+  );
+}
+
 /** Mueve la cámara a la vista elegida, con un vuelo suave. En pantallas en vertical se aleja un poco para que quepa. */
 function CameraRig({ view }: { view: ViewKey }) {
   const ref = useRef<CameraControls>(null);
@@ -179,7 +211,7 @@ export default function NavesScene({ data, selected, onSelect, view, roof, label
         <Rack key={s.key} s={s} items={data.shelves[s.key] ?? []} labels={labels && view === "almacen"}
           selected={is({ type: "shelf", key: s.key })} onSelect={() => onSelect({ type: "shelf", key: s.key })} />
       ))}
-      <Forklift p={[-18.5, 0, -51]} rot={0.6} />
+      <MovingForklift moving={high} />
       <Dock count={data.dock.length} labels={labels && view !== "showroom" && view !== "almacen"} selected={is({ type: "dock" })} onSelect={() => onSelect({ type: "dock" })} />
 
       <CameraRig view={view} />

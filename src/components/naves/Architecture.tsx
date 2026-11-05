@@ -233,34 +233,91 @@ function GlassRun({ a, b, height }: { a: [number, number]; b: [number, number]; 
   );
 }
 
-/** Cocina de exposición: muebles bajos con encimera, columnas altas y, si toca, isla con taburetes. */
+/** Frentes de puertas y cajones sobre un mueble: cada hueco con su junta oscura, para que se lea como cocina de verdad.
+ *  cols = puertas a lo ancho; rows = alturas de cajón (de abajo arriba, en fracciones). */
+function Fronts({ w, h, y, z, cols, rows = [1], mat, back = false }: { w: number; h: number; y: number; z: number; cols: number; rows?: number[]; mat: React.ReactNode; back?: boolean }) {
+  const gap = 0.012, cw = w / cols;
+  const cells: [number, number, number, number][] = [];
+  for (let c = 0; c < cols; c++) {
+    let y0 = y;
+    for (const f of rows) { cells.push([-w / 2 + cw * (c + 0.5), y0 + (f * h) / 2, cw - gap, f * h - gap]); y0 += f * h; }
+  }
+  return (
+    <group position={[0, 0, z]} rotation={[0, back ? Math.PI : 0, 0]}>
+      {cells.map(([cx, cy, cw2, ch], i) => <mesh key={i} position={[cx, cy, 0.009]} castShadow><boxGeometry args={[cw2, ch, 0.018]} />{mat}</mesh>)}
+    </group>
+  );
+}
+
+const STEEL_K = { color: "#c9ccd0", metalness: 0.85, roughness: 0.25 } as const;
+const BLACK_GLASS = { color: "#111315", metalness: 0.3, roughness: 0.08 } as const;
+
+/** Cocina de exposición: bajos con cajones, gola y zócalo, fregadero con grifo, placa, campana, columna con horno
+ *  y frigorífico, altos y, si toca, isla con taburetes y lámparas. Los frentes miran hacia +z. */
 function DisplayKitchen({ x, z, rot = 0, front, top = "#3b3a38", island }: { x: number; z: number; rot?: number; front: string; top?: string; island?: boolean }) {
   const wood = useMemo(() => woodTex(front), [front]);
   const lacado = front.startsWith("#f") || front.startsWith("#e");
-  const mat = lacado ? <meshStandardMaterial color={front} roughness={0.25} /> : <meshStandardMaterial map={wood} roughness={0.6} />;
+  const mat = lacado ? <meshStandardMaterial color={front} roughness={0.22} /> : <meshStandardMaterial map={wood} roughness={0.55} />;
+  const carcass = <meshStandardMaterial color="#2a2826" roughness={0.8} />;
+  const topMat = <meshStandardMaterial color={top} roughness={0.25} metalness={0.05} />;
   return (
     <group position={[x, 0, z]} rotation={[0, rot, 0]}>
-      {/* Bancada de bajos */}
-      <mesh position={[0, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[4.2, 0.9, 0.62]} />{mat}</mesh>
-      <mesh position={[0, 0.93, 0.02]} castShadow><boxGeometry args={[4.3, 0.04, 0.66]} /><meshStandardMaterial color={top} roughness={0.3} /></mesh>
-      {/* Columnas altas al fondo */}
-      <mesh position={[2.9, 1.1, 0]} castShadow><boxGeometry args={[1.2, 2.2, 0.62]} />{mat}</mesh>
+      {/* Bancada de bajos: casco, zócalo retranqueado, gola y frentes (cajonera a la izquierda, puertas en el centro) */}
+      <mesh position={[0, 0.5, -0.02]} castShadow receiveShadow><boxGeometry args={[4.2, 0.8, 0.56]} />{carcass}</mesh>
+      <mesh position={[0, 0.05, -0.05]}><boxGeometry args={[4.2, 0.1, 0.5]} /><meshStandardMaterial color="#1c1c1c" /></mesh>
+      <group position={[-1.4, 0, 0]}><Fronts w={1.4} h={0.72} y={0.1} z={0.26} cols={2} rows={[0.4, 0.3, 0.3]} mat={mat} /></group>
+      <group position={[0.7, 0, 0]}><Fronts w={2.8} h={0.72} y={0.1} z={0.26} cols={4} mat={mat} /></group>
+      <mesh position={[0, 0.865, 0.27]}><boxGeometry args={[4.2, 0.05, 0.02]} /><meshStandardMaterial color="#1b1b1b" metalness={0.5} roughness={0.4} /></mesh>
+      <mesh position={[0, 0.93, 0.02]} castShadow receiveShadow><boxGeometry args={[4.3, 0.04, 0.66]} />{topMat}</mesh>
+      {/* Fregadero y grifo */}
+      <mesh position={[-1.1, 0.952, 0.05]}><boxGeometry args={[0.7, 0.006, 0.42]} /><meshStandardMaterial {...STEEL_K} /></mesh>
+      <mesh position={[-1.1, 1.1, -0.2]} castShadow><cylinderGeometry args={[0.02, 0.025, 0.3, 10]} /><meshStandardMaterial {...STEEL_K} /></mesh>
+      <mesh position={[-1.1, 1.25, -0.12]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.015, 0.015, 0.18, 8]} /><meshStandardMaterial {...STEEL_K} /></mesh>
+      {/* Placa de inducción */}
+      <mesh position={[1.3, 0.952, 0.02]}><boxGeometry args={[0.75, 0.006, 0.5]} /><meshStandardMaterial {...BLACK_GLASS} /></mesh>
+      {[[-0.18, -0.1], [0.18, -0.1], [-0.18, 0.12], [0.18, 0.12]].map(([hx, hz]) => (
+        <mesh key={`${hx}${hz}`} position={[1.3 + hx, 0.956, 0.02 + hz]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.07, 0.085, 20]} /><meshStandardMaterial color="#6c6f73" /></mesh>
+      ))}
+      {/* Frente de pared (aplacado) y campana */}
+      <mesh position={[0, 1.3, -0.3]} receiveShadow><boxGeometry args={[4.2, 0.7, 0.02]} />{topMat}</mesh>
+      <mesh position={[1.3, 1.78, -0.08]} castShadow><boxGeometry args={[0.8, 0.12, 0.45]} /><meshStandardMaterial {...STEEL_K} /></mesh>
+      <mesh position={[1.3, 2.2, -0.2]} castShadow><boxGeometry args={[0.3, 0.75, 0.22]} /><meshStandardMaterial {...STEEL_K} /></mesh>
       {/* Altos */}
-      <mesh position={[-0.6, 1.95, -0.14]} castShadow><boxGeometry args={[3, 0.7, 0.35]} />{mat}</mesh>
+      <mesh position={[-0.75, 1.95, -0.16]} castShadow><boxGeometry args={[2.7, 0.7, 0.3]} />{carcass}</mesh>
+      <group position={[-0.75, 0, 0]}><Fronts w={2.7} h={0.7} y={1.6} z={-0.01} cols={4} mat={mat} /></group>
+      {/* Columnas: horno + microondas y frigorífico integrado */}
+      <mesh position={[2.9, 1.1, -0.02]} castShadow><boxGeometry args={[1.2, 2.2, 0.56]} />{carcass}</mesh>
+      <group position={[2.6, 0, 0]}>
+        <Fronts w={0.6} h={2.1} y={0.1} z={0.26} cols={1} rows={[0.33, 0.3, 0.2, 0.17]} mat={mat} />
+        <mesh position={[0, 0.98, 0.285]}><boxGeometry args={[0.56, 0.58, 0.012]} /><meshStandardMaterial {...BLACK_GLASS} /></mesh>
+        <mesh position={[0, 1.6, 0.285]}><boxGeometry args={[0.56, 0.38, 0.012]} /><meshStandardMaterial {...BLACK_GLASS} /></mesh>
+      </group>
+      <group position={[3.2, 0, 0]}><Fronts w={0.6} h={2.1} y={0.1} z={0.26} cols={1} rows={[0.62, 0.38]} mat={mat} /></group>
       {island && (
         <group position={[0, 0, 2.3]}>
-          <mesh position={[0, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[2.6, 0.9, 1]} />{mat}</mesh>
-          <mesh position={[0, 0.93, 0.15]} castShadow><boxGeometry args={[2.8, 0.05, 1.4]} /><meshStandardMaterial color={top} roughness={0.25} /></mesh>
+          <mesh position={[0, 0.5, 0]} castShadow receiveShadow><boxGeometry args={[2.6, 0.8, 0.96]} />{carcass}</mesh>
+          <mesh position={[0, 0.05, 0]}><boxGeometry args={[2.5, 0.1, 0.9]} /><meshStandardMaterial color="#1c1c1c" /></mesh>
+          {/* Cajoneras mirando a la bancada; por el lado de los taburetes, un panel liso */}
+          <Fronts w={2.6} h={0.72} y={0.1} z={-0.48} cols={3} rows={[0.4, 0.3, 0.3]} mat={mat} back />
+          <mesh position={[0, 0.5, 0.49]}><boxGeometry args={[2.6, 0.8, 0.02]} />{mat}</mesh>
+          <mesh position={[0, 0.93, 0.15]} castShadow receiveShadow><boxGeometry args={[2.8, 0.05, 1.4]} />{topMat}</mesh>
           {[-0.8, 0, 0.8].map((sx) => (
             <group key={sx} position={[sx, 0, 1.2]}>
               <mesh position={[0, 0.38, 0]} castShadow><cylinderGeometry args={[0.03, 0.03, 0.75, 8]} /><meshStandardMaterial color="#222" metalness={0.7} /></mesh>
+              <mesh position={[0, 0.03, 0]}><cylinderGeometry args={[0.18, 0.18, 0.02, 16]} /><meshStandardMaterial color="#222" metalness={0.7} /></mesh>
               <mesh position={[0, 0.77, 0]} castShadow><cylinderGeometry args={[0.2, 0.2, 0.05, 20]} /><meshStandardMaterial color="#c9b49a" /></mesh>
             </group>
           ))}
-          {/* Lámparas colgantes */}
+          {/* Lámparas colgantes con su cable */}
           {[-0.7, 0.7].map((lx) => (
-            <mesh key={lx} position={[lx, 2.3, 0.15]}><sphereGeometry args={[0.16, 20, 12]} /><meshStandardMaterial color="#fff6e5" emissive="#ffd9a0" emissiveIntensity={0.8} /></mesh>
+            <group key={lx} position={[lx, 0, 0.15]}>
+              <mesh position={[0, 2.95, 0]}><cylinderGeometry args={[0.006, 0.006, 1.1, 4]} /><meshStandardMaterial color="#222" /></mesh>
+              <mesh position={[0, 2.3, 0]}><sphereGeometry args={[0.16, 20, 12]} /><meshStandardMaterial color="#fff6e5" emissive="#ffd9a0" emissiveIntensity={0.8} /></mesh>
+            </group>
           ))}
+          {/* Frutero sobre la isla */}
+          <mesh position={[0.4, 0.99, 0.2]}><cylinderGeometry args={[0.16, 0.1, 0.07, 16]} /><meshStandardMaterial color="#e8e3da" /></mesh>
+          {[[0.35, 0.18], [0.45, 0.24], [0.42, 0.13]].map(([fx, fz], i) => <mesh key={i} position={[fx, 1.04, fz]}><sphereGeometry args={[0.04, 10, 8]} /><meshStandardMaterial color={["#d9472b", "#e8a530", "#7da33a"][i]} /></mesh>)}
         </group>
       )}
     </group>

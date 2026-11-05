@@ -9,6 +9,7 @@ import { DOCK, FACTORY_ZONES, type Rect, SHELVES, VIEWS, type ViewKey } from "@/
 import type { NavesData } from "@/lib/naves-data";
 import { Factory, Showroom } from "./Architecture";
 import { BoardStack, Forklift, KitchenPallet, PalletRack, Van, ZoneEquipment, ZoneWorkers } from "./Equipment";
+import { LiveContext } from "./live";
 import { Surroundings } from "./Surroundings";
 
 export type Selection = { type: "zone"; key: string } | { type: "shelf"; key: string } | { type: "dock" } | { type: "showroom" } | null;
@@ -200,6 +201,7 @@ export default function NavesScene({ data, selected, onSelect, view, roof, label
         <Lightformer intensity={1.2} position={[30, 5, 0]} rotation-y={-Math.PI / 2} scale={[30, 8, 1]} color="#fff1dc" />
       </Environment>
 
+     <LiveContext.Provider value={high}>
       <Surroundings />
       <ShowroomPick roof={roof} selected={is({ type: "showroom" })} onSelect={() => onSelect({ type: "showroom" })} labels={labels} />
       <Factory roof={roof} />
@@ -214,6 +216,7 @@ export default function NavesScene({ data, selected, onSelect, view, roof, label
       <MovingForklift moving={high} />
       <Dock count={data.dock.length} labels={labels && view !== "showroom" && view !== "almacen"} selected={is({ type: "dock" })} onSelect={() => onSelect({ type: "dock" })} />
 
+     </LiveContext.Provider>
       <CameraRig view={view} />
       {high && (
         <EffectComposer multisampling={4}>

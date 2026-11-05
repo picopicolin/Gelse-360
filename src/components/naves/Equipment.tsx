@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import type { Group } from "three";
+import { useLive } from "./live";
 import type { Rect } from "@/lib/naves";
 import type { ZoneKitchen } from "@/lib/naves-data";
 import { woodTex } from "./textures";
@@ -32,8 +34,11 @@ export function BoardStack({ p, n = 12, color = "#efe9df", size = [2.8, 2.07] }:
 
 /** Seccionadora: mesa de alimentación con tableros, viga de corte y mesas de salida con rodillos. */
 function PanelSaw({ p }: { p: V3 }) {
+  const carriage = useRef<Group>(null);
+  useLive((t) => { if (carriage.current) carriage.current.position.x = Math.sin(t * 0.6) * 2; });
   return (
     <group position={p}>
+      <group ref={carriage} position={[0, 0.82, 0.05]}><Box p={[0, 0, 0]} s={[0.5, 0.25, 0.45]} m={{ color: "#c23a2c", roughness: 0.4 }} /></group>
       <Box p={[0, 0.45, -1.4]} s={[4.4, 0.9, 2.2]} m={STEEL} />
       <BoardStack p={[0, 0.9, -1.4]} n={8} size={[4.1, 2]} />
       {/* Viga de presión y carro de sierra */}
@@ -64,17 +69,26 @@ function EdgeBander({ p }: { p: V3 }) {
 
 /** CNC: mesa de vacío, pórtico con cabezal y topes de seguridad. */
 function Cnc({ p }: { p: V3 }) {
+  const gantry = useRef<Group>(null), head = useRef<Group>(null);
+  useLive((t) => {
+    if (gantry.current) gantry.current.position.x = Math.sin(t * 0.35) * 2;
+    if (head.current) head.current.position.z = Math.sin(t * 1.1) * 0.7;
+  });
   return (
     <group position={p}>
       <Box p={[0, 0.4, 0]} s={[6.2, 0.8, 2.4]} m={DARK} />
       <Box p={[0, 0.82, 0]} s={[6, 0.04, 2.2]} m={{ color: "#17191c", roughness: 0.9 }} />
       <Box p={[0.4, 0.86, 0]} s={[2.8, 0.02, 2]} m={{ color: "#efe9df" }} />
       {/* Pórtico */}
-      <Box p={[-0.6, 1.5, -1.35]} s={[0.4, 2.2, 0.35]} m={ACCENT} />
-      <Box p={[-0.6, 1.5, 1.35]} s={[0.4, 2.2, 0.35]} m={ACCENT} />
-      <Box p={[-0.6, 2.5, 0]} s={[0.45, 0.45, 3]} m={ACCENT} />
-      <Box p={[-0.6, 1.9, 0.3]} s={[0.6, 0.9, 0.55]} m={STEEL} />
-      <mesh position={[-0.6, 1.3, 0.3]} castShadow><cylinderGeometry args={[0.06, 0.06, 0.4, 12]} /><meshStandardMaterial color="#888" metalness={0.8} /></mesh>
+      <group ref={gantry}>
+        <Box p={[-0.6, 1.5, -1.35]} s={[0.4, 2.2, 0.35]} m={ACCENT} />
+        <Box p={[-0.6, 1.5, 1.35]} s={[0.4, 2.2, 0.35]} m={ACCENT} />
+        <Box p={[-0.6, 2.5, 0]} s={[0.45, 0.45, 3]} m={ACCENT} />
+        <group ref={head}>
+          <Box p={[-0.6, 1.9, 0.3]} s={[0.6, 0.9, 0.55]} m={STEEL} />
+          <mesh position={[-0.6, 1.3, 0.3]} castShadow><cylinderGeometry args={[0.06, 0.06, 0.4, 12]} /><meshStandardMaterial color="#888" metalness={0.8} /></mesh>
+        </group>
+      </group>
       {/* Topes amarillos */}
       <Box p={[0, 0.5, 1.45]} s={[6.4, 0.12, 0.1]} m={SAFETY} />
       <Box p={[0, 0.5, -1.45]} s={[6.4, 0.12, 0.1]} m={SAFETY} />
@@ -138,14 +152,36 @@ function PackingStation({ p }: { p: V3 }) {
   );
 }
 
+/** Cubo de rejilla con retales de tablero, al lado de las máquinas de corte. */
+function OffcutBin({ p }: { p: V3 }) {
+  const pieces: [number, number, number, number][] = [[-0.2, 0.55, 0.1, 0.3], [0.15, 0.6, -0.1, -0.4], [0, 0.65, 0.15, 0.9], [0.2, 0.5, 0.2, 0.2]];
+  return (
+    <group position={p}>
+      <mesh position={[0, 0.35, 0]} castShadow><boxGeometry args={[0.9, 0.7, 0.7]} /><meshStandardMaterial color="#6c737a" metalness={0.5} roughness={0.5} wireframe /></mesh>
+      <mesh position={[0, 0.02, 0]}><boxGeometry args={[0.9, 0.04, 0.7]} /><meshStandardMaterial color="#5b6168" /></mesh>
+      {pieces.map(([x, y, z, r], i) => <mesh key={i} position={[x, y, z]} rotation={[0.3, r, 0.5]} castShadow><boxGeometry args={[0.7, 0.019, 0.2]} /><meshStandardMaterial color={i % 2 ? "#efe9df" : "#c9a77a"} /></mesh>)}
+    </group>
+  );
+}
+
+/** Mancha de serrín en el suelo, alrededor de la máquina. */
+function Sawdust({ p, r = 1.2 }: { p: V3; r?: number }) {
+  return (
+    <mesh position={[p[0], 0.037, p[2]]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.4, 1, 1]}>
+      <circleGeometry args={[r, 24]} />
+      <meshStandardMaterial color="#c9ab7f" transparent opacity={0.35} roughness={1} depthWrite={false} />
+    </mesh>
+  );
+}
+
 /** Máquinas y mobiliario de cada zona, colocados dentro de su rectángulo. */
 export function ZoneEquipment({ zone, rect }: { zone: string; rect: Rect }) {
   const cx = rect.x + rect.w / 2;
   const top = rect.z + 2.6;
   switch (zone) {
-    case "corte": return <PanelSaw p={[cx - 1, 0, top + 0.6]} />;
-    case "canteado": return <EdgeBander p={[cx, 0, top]} />;
-    case "mecanizado": return <Cnc p={[cx - 1, 0, top + 0.6]} />;
+    case "corte": return <><PanelSaw p={[cx - 1, 0, top + 0.6]} /><Sawdust p={[cx - 1, 0, top + 1.6]} r={1.6} /><OffcutBin p={[cx + 3.6, 0, top + 1.8]} /></>;
+    case "canteado": return <><EdgeBander p={[cx, 0, top]} /><Sawdust p={[cx + 3, 0, top + 0.9]} r={0.9} /><OffcutBin p={[cx - 5.2, 0, top - 1.4]} /></>;
+    case "mecanizado": return <><Cnc p={[cx - 1, 0, top + 0.6]} /><Sawdust p={[cx - 1, 0, top + 0.6]} r={2.4} /><OffcutBin p={[cx + 4.4, 0, top + 2.4]} /></>;
     case "lacado": return <PaintBooth p={[cx - 3, 0, top + 0.4]} />;
     case "montaje": return <>{[0, 1, 2].map((i) => <Workbench key={i} p={[rect.x + 2.3 + i * 4.2, 0, top]} withCabinet={i !== 1} />)}</>;
     case "embalaje": return <PackingStation p={[cx - 2, 0, top - 0.6]} />;
@@ -287,8 +323,15 @@ export function Worker({ p, rot = 0, seed = 0, painter = false }: { p: V3; rot?:
   const skin = SKIN[seed % SKIN.length];
   const legs = painter ? "#eeeeec" : "#2b3442";
   const body = painter ? "#f2f2f0" : seed % 2 ? "#3b4350" : "#4a3f36";
+  const turn = useRef<Group>(null), arms = useRef<Group>(null);
+  useLive((t) => {
+    const ph = t + seed * 1.3;
+    if (turn.current) turn.current.rotation.y = Math.sin(ph * 0.45) * 0.18;
+    if (arms.current) arms.current.rotation.x = Math.sin(ph * (painter ? 2.6 : 1.8)) * 0.12;
+  });
   return (
     <group position={p} rotation={[0, rot, 0]}>
+     <group ref={turn}>
       {[-0.1, 0.1].map((x) => (
         <group key={x}>
           <mesh position={[x, 0.45, 0]} castShadow><capsuleGeometry args={[0.075, 0.68, 4, 10]} /><meshStandardMaterial color={legs} roughness={0.9} /></mesh>
@@ -303,12 +346,14 @@ export function Worker({ p, rot = 0, seed = 0, painter = false }: { p: V3; rot?:
         </group>
       )}
       {/* Brazos hacia delante, como manejando la máquina o la pieza */}
+      <group ref={arms} position={[0, 1.36, 0]}>
       {[-0.24, 0.24].map((x) => (
-        <group key={x} position={[x, 1.36, 0]} rotation={[-1.1, 0, x > 0 ? -0.15 : 0.15]}>
+        <group key={x} position={[x, 0, 0]} rotation={[-1.1, 0, x > 0 ? -0.15 : 0.15]}>
           <mesh position={[0, -0.24, 0]} castShadow><capsuleGeometry args={[0.055, 0.42, 4, 8]} /><meshStandardMaterial color={body} roughness={0.85} /></mesh>
           <mesh position={[0, -0.5, 0]}><sphereGeometry args={[0.055, 10, 8]} /><meshStandardMaterial color={painter ? "#3a6fb0" : skin} /></mesh>
         </group>
       ))}
+      </group>
       <mesh position={[0, 1.6, 0]}><cylinderGeometry args={[0.055, 0.06, 0.1, 10]} /><meshStandardMaterial color={skin} /></mesh>
       <mesh position={[0, 1.73, 0]} castShadow><sphereGeometry args={[0.115, 16, 12]} /><meshStandardMaterial color={skin} roughness={0.7} /></mesh>
       {/* Pelo, o capucha y mascarilla en el de lacado */}
@@ -316,6 +361,7 @@ export function Worker({ p, rot = 0, seed = 0, painter = false }: { p: V3; rot?:
       {painter && <mesh position={[0, 1.69, 0.09]}><boxGeometry args={[0.13, 0.08, 0.06]} /><meshStandardMaterial color="#5a6066" /></mesh>}
       {/* Cascos de protección auditiva (en las máquinas hace ruido) */}
       {!painter && [-0.12, 0.12].map((x) => <mesh key={x} position={[x, 1.73, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.045, 0.045, 0.04, 12]} /><meshStandardMaterial color="#d6402f" /></mesh>)}
+     </group>
     </group>
   );
 }

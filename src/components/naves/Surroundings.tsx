@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import type { Group } from "three";
+import { useLive } from "./live";
 import { asphaltNormal, asphaltTex, grassTex, metalNormal, metalPanelTex, sidewalkTex, stripesTex } from "./textures";
 import { Car } from "./Equipment";
 
@@ -60,6 +62,20 @@ function StreetLight({ p, rot = 0 }: { p: V3; rot?: number }) {
   );
 }
 
+/** Coche que circula por un carril y vuelve a empezar (sale y entra por donde ya lo tapa la niebla o la rotonda). */
+function MovingCar({ from, to, speed, offset, color }: { from: V3; to: V3; speed: number; offset: number; color: string }) {
+  const ref = useRef<Group>(null);
+  const len = Math.hypot(to[0] - from[0], to[2] - from[2]);
+  const rot = Math.atan2(to[0] - from[0], to[2] - from[2]);
+  const live = useLive((t) => {
+    if (!ref.current) return;
+    const k = ((t * speed + offset) % len) / len;
+    ref.current.position.set(from[0] + (to[0] - from[0]) * k, 0, from[2] + (to[2] - from[2]) * k);
+  });
+  if (!live) return null;
+  return <group ref={ref}><Car p={[0, 0, 0]} rot={rot} color={color} /></group>;
+}
+
 const CAR_COLORS = ["#9aa3ad", "#1f2329", "#f2f2f0", "#7b1f24", "#2f4b6e", "#c8ccd0", "#3d4a3a", "#f2f2f0"];
 
 export function Surroundings() {
@@ -101,6 +117,13 @@ export function Surroundings() {
         <mesh key={`p${i}`} position={[-94.75 + i * 9.5, 0.005, 4.6]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[0.12, 2.6]} /><meshStandardMaterial color={white} /></mesh>
       ))}
       {CAR_COLORS.map((c, i) => <Car key={i} p={[-90 + i * 9.5, 0, 4.6]} rot={Math.PI / 2} color={c} />)}
+
+      {/* Tráfico (solo en calidad alta) */}
+      <MovingCar from={[-125, 0, 7.9]} to={[2, 0, 7.9]} speed={9} offset={0} color="#2f4b6e" />
+      <MovingCar from={[-125, 0, 7.9]} to={[2, 0, 7.9]} speed={9} offset={70} color="#e9e9e6" />
+      <MovingCar from={[2, 0, 15.5]} to={[-125, 0, 15.5]} speed={10} offset={30} color="#7b1f24" />
+      <MovingCar from={[12.3, 0, -1]} to={[12.3, 0, -95]} speed={11} offset={10} color="#9aa3ad" />
+      <MovingCar from={[17.7, 0, -95]} to={[17.7, 0, -1]} speed={10} offset={55} color="#1f2329" />
 
       {/* Ctra. de Ripollet: línea central discontinua */}
       <Plane p={[15, -0.02, -40]} s={[11.6, 110]} map={asphaltV} normal={asphaltVN} />

@@ -30,7 +30,7 @@ const DROPS: { z: number; x: number; bottom: number }[] = [
   { z: -45.8, x: -23.5, bottom: 1.5 }, // seccionadora
   { z: -38.55, x: -21, bottom: 2 }, // canteadora (dos tomas)
   { z: -38.55, x: -25, bottom: 2 },
-  { z: -29.5, x: -24.1, bottom: 2.8 }, // CNC, al cabezal
+  { z: -29.5, x: -24.1, bottom: 3.2 }, // CNC: la manguera cuelga sobre el pórtico, que se mueve debajo
 ];
 
 /** Silo de aspiración con filtro, ventilador y escalera, fuera de la fachada norte, y los tubos hasta las máquinas. */
